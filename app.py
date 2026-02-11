@@ -1,53 +1,47 @@
 import streamlit as st
-import numpy as np
 import pandas as pd
-import joblib
+import numpy as np
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.ensemble import RandomForestClassifier
 
-model = joblib.load("churn_model.pkl")
-scaler = joblib.load("scaler.pkl")
-
-st.set_page_config(page_title="Telecom Churn Prediction")
+st.set_page_config(page_title="Telecom Churn Prediction", layout="wide")
 
 st.title("📡 Telecom Customer Churn Prediction System")
-st.markdown("Predict customer churn using Machine Learning")
+st.write("Predict customer churn using Machine Learning")
+
+@st.cache_data
+def load_data():
+    df = pd.read_csv("telecom_customer_churn.csv")
+    df = pd.get_dummies(df, drop_first=True)
+    return df
+
+df = load_data()
+
+X = df.drop("Churn_Yes", axis=1)
+y = df["Churn_Yes"]
+
+scaler = StandardScaler()
+X_scaled = scaler.fit_transform(X)
+
+model = RandomForestClassifier(n_estimators=150, random_state=42)
+model.fit(X_scaled, y)
 
 st.sidebar.header("Customer Details")
 
-gender = st.sidebar.selectbox("Gender", ["Male", "Female"])
-senior = st.sidebar.selectbox("Senior Citizen", ["No", "Yes"])
-partner = st.sidebar.selectbox("Partner", ["No", "Yes"])
-dependents = st.sidebar.selectbox("Dependents", ["No", "Yes"])
+input_data = {}
 
-tenure = st.sidebar.slider("Tenure", 0, 72, 12)
-monthly = st.sidebar.slider("Monthly Charges", 20, 150, 70)
-total = st.sidebar.slider("Total Charges", 0, 9000, 1500)
+for col in X.columns:
+    input_data[col] = st.sidebar.number_input(col, float(X[col].min()), float(X[col].max()), float(X[col].mean()))
 
-internet = st.sidebar.selectbox("Internet Service", ["DSL", "Fiber optic", "No"])
-contract = st.sidebar.selectbox("Contract", ["Month-to-month", "One year", "Two year"])
-payment = st.sidebar.selectbox("Payment Method", ["Electronic check", "Mailed check", "Bank transfer", "Credit card"])
-
-def encode():
-    return [
-        1 if gender == "Male" else 0,
-        1 if senior == "Yes" else 0,
-        1 if partner == "Yes" else 0,
-        1 if dependents == "Yes" else 0,
-        tenure,
-        monthly,
-        total,
-        1 if internet == "Fiber optic" else 0,
-        1 if contract == "Two year" else 0,
-        1 if payment == "Electronic check" else 0
-    ]
+input_df = pd.DataFrame([input_data])
+input_scaled = scaler.transform(input_df)
 
 if st.button("Predict"):
-    data = np.array(encode()).reshape(1, -1)
-    data = scaler.transform(data)
-
-    pred = model.predict(data)[0]
-    prob = model.predict_proba(data)[0][1]
+    pred = model.predict(input_scaled)[0]
+    prob = model.predict_proba(input_scaled)[0][1]
 
     if pred == 1:
-        st.error(f"❌ Customer WILL CHURN (Probability: {prob:.2%})")
+        st.error(f"⚠️ Customer will churn (Risk: {prob*100:.2f}%)")
     else:
-        st.success(f"✅ Customer WILL STAY (Probability: {(1-prob):.2%})")
+        st.success(f"✅ Customer will NOT churn (Confidence: {(1-prob)*100:.2f}%)")
