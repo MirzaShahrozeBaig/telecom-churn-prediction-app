@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.ensemble import RandomForestClassifier
 
@@ -18,8 +17,11 @@ def load_data():
 
 df = load_data()
 
-X = df.drop("Churn_Yes", axis=1)
-y = df["Churn_Yes"]
+# Auto detect churn column
+target_col = [col for col in df.columns if "Churn" in col or "churn" in col][0]
+
+X = df.drop(target_col, axis=1)
+y = df[target_col]
 
 scaler = StandardScaler()
 X_scaled = scaler.fit_transform(X)
